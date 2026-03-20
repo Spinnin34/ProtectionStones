@@ -516,18 +516,29 @@ public enum PSL {
         }
     }
 
-    // match all &#123abc format for hex
-    private static final Pattern hexPattern = Pattern.compile("(?<!\\\\\\\\)(&#[a-fA-F0-9]{6})");
+    // Match unescaped "&#RRGGBB" tokens; escaped form "\&#RRGGBB" is preserved.
+    private static final Pattern hexPattern = Pattern.compile("(?<!\\\\)&#([a-fA-F0-9]{6})");
 
     private static String applyInGameColours(String msg) {
-
-        Matcher matcher = hexPattern.matcher(msg);
-        while (matcher.find()) {
-            String color = msg.substring(matcher.start() + 1, matcher.end());
-            msg = msg.replace(msg.substring(matcher.start(), matcher.end()), "" + net.md_5.bungee.api.ChatColor.of(color));
+        if (msg == null) {
+            return "";
         }
 
-        return msg.replace('&', '§');
+        Matcher matcher = hexPattern.matcher(msg);
+        StringBuffer parsed = new StringBuffer();
+        while (matcher.find()) {
+            String replacement;
+            try {
+                replacement = net.md_5.bungee.api.ChatColor.of("#" + matcher.group(1)).toString();
+            } catch (IllegalArgumentException ignored) {
+                // Keep original token if parser rejects an edge-case input.
+                replacement = matcher.group(0);
+            }
+            matcher.appendReplacement(parsed, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(parsed);
+
+        return parsed.toString().replace('&', '§');
     }
 
     private static String applyConfigColours(String msg) {
